@@ -1,0 +1,19 @@
+{
+    "name": "tanbhirhossain/laravel-live-terminal",
+    "description": "A simple and secure web-based terminal to run Laravel Artisan commands.",
+    "type": "laravel-package",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Tanbhirhossain\\LaravelLiveTerminal\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Tanbhir Hossain",
+            "email": "tanbhirhossaincs@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {}
+}

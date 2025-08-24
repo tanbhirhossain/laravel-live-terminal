@@ -1,0 +1,6 @@
+<!-- Change the fetch URL to use a named route -->
+<script>
+    //...
+    fetch("{{ route('terminal.run') }}", { // We will name this route in web.php
+    //...
+</script>
