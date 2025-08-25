@@ -5,13 +5,14 @@ namespace Tanbhirhossain\LaravelLiveTerminal\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Symfony\Component\Process\Process;
+use Symfony\Component\Process\PhpExecutableFinder; // <-- 1. IMPORT THIS CLASS
 use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class TerminalController extends Controller
 {
     public function index()
     {
-        return view('terminal::index'); // Note the namespace for the view
+        return view('terminal::index');
     }
 
     public function run(Request $request)
@@ -19,30 +20,46 @@ class TerminalController extends Controller
         $request->validate(['command' => 'required|string']);
 
         $command = $request->input('command');
-
-        // Extract the base command to check against the whitelist
         $baseCommand = explode(' ', $command)[0];
 
         if (!in_array($baseCommand, config('terminal.allowed_commands'))) {
             return response()->json([
-                'output' => "❌ Error: Command not allowed.\nOnly whitelisted commands can be executed.",
+                'output' => "❌ Error: Command '$baseCommand' is not allowed.",
                 'success' => false
             ]);
         }
 
         try {
-            // Using PHP_BINARY constant is more reliable than a hardcoded path.
-            // Ensure the web server user (e.g., www-data) has permission to execute it.
+            // --- 2. THE FIX IS HERE ---
+            // First, check for a manually configured PHP path.
+            $phpPath = config('terminal.php_path');
+
+            // If not configured, find it automatically.
+            if (!$phpPath) {
+                $phpFinder = new PhpExecutableFinder();
+                $phpPath = $phpFinder->find(false);
+            }
+
+            // If we still couldn't find it, return an error.
+            if (!$phpPath) {
+                 return response()->json([
+                    'output' => "❌ Error: Could not find PHP executable. Please set it manually in config/terminal.php.",
+                    'success' => false
+                ]);
+            }
+
+            // Now, build the command with the CORRECT PHP path.
             $process = Process::fromShellCommandline(
-                PHP_BINARY . ' ' . base_path('artisan') . ' ' . $command . ' --ansi'
+                '"' . $phpPath . '"' . ' ' . base_path('artisan') . ' ' . $command . ' --ansi'
             );
+            // --- END OF FIX ---
+
 
             $process->setWorkingDirectory(base_path());
-            $process->setTimeout(120); // Increase timeout for long commands
+            $process->setTimeout(120);
             $process->run();
 
             if (!$process->isSuccessful()) {
-                // Throw an exception to catch both stdout and stderr
                 throw new ProcessFailedException($process);
             }
 
@@ -53,15 +70,9 @@ class TerminalController extends Controller
 
         } catch (ProcessFailedException $exception) {
             return response()->json([
-                // Return the error output for better debugging
-                'output' => $exception->getProcess()->getOutput() ?: $exception->getProcess()->getErrorOutput(),
+                'output' => $exception->getProcess()->getErrorOutput(),
                 'success' => false
             ]);
-        } catch (\Throwable $e) {
-            return response()->json([
-                'output' => 'An unexpected server error occurred: ' . $e->getMessage(),
-                'success' => false
-            ], 500);
         }
     }
 }

@@ -5,20 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Laravel Live Terminal</title>
 
-    <!-- Xterm.js Core: The terminal emulator -->
+    <!-- Xterm.js Core -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
 
-    <!-- Xterm.js Addons: For better functionality -->
+    <!-- Xterm.js Addons -->
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-web-links@0.9.0/lib/xterm-addon-web-links.js"></script>
 
     <style>
-        /* Basic styling to make the terminal fill the entire page */
         html, body {
             height: 100%;
             margin: 0;
-            background-color: #282a36; /* Dracula theme background */
+            background-color: #282a36; 
         }
         #terminal-container {
             width: 100vw;
@@ -45,7 +44,6 @@
         cursorBlink: true,
         fontFamily: 'Menlo, "DejaVu Sans Mono", Consolas, "Lucida Console", monospace',
         fontSize: 14,
-        // This theme object makes it look like a professional terminal
         theme: {
             background: '#282a36',
             foreground: '#f8f8f2',
@@ -70,17 +68,14 @@
         }
     });
 
-    // Load addons
     const fitAddon = new FitAddon.FitAddon();
     term.loadAddon(fitAddon);
     term.loadAddon(new WebLinksAddon.WebLinksAddon());
 
-    // Attach the terminal to the DOM and make it fit the container
     const terminalEl = document.getElementById('terminal');
     term.open(terminalEl);
     fitAddon.fit();
     window.addEventListener('resize', () => fitAddon.fit());
-
 
     // =================================================================
     //  2. TERMINAL STATE & LOGIC
@@ -90,9 +85,9 @@
     let historyIndex = 0;
     let isProcessing = false;
 
-    // Define the prompt appearance
-    const user = 'laravel';
-    const host = 'localhost';
+    // ✅ Fixed Laravel Blade variables
+    const user = @json(auth()->user()->name);
+    const host = @json(config('app.name'));
     const path = '~';
 
     function prompt() {
@@ -100,14 +95,13 @@
         term.write(`\r\n\x1b[1;32m${user}@${host}\x1b[0m:\x1b[1;34m${path}\x1b[0m$ `);
     }
 
-    // Welcome message
     term.writeln('🚀 Welcome to Laravel Live Terminal!');
     term.writeln('Type `list` or `help` to see available commands.');
     prompt();
-    term.focus(); // Focus the terminal on load
+    term.focus();
 
     // =================================================================
-    //  3. COMMAND EXECUTION (Communication with Backend)
+    //  3. COMMAND EXECUTION
     // =================================================================
     async function runCommand(command) {
         if (command.trim() === '') {
@@ -115,7 +109,6 @@
             return;
         }
 
-        // Handle the 'clear' command on the frontend
         if (command.trim() === 'clear') {
             term.clear();
             prompt();
@@ -125,7 +118,7 @@
         }
         
         isProcessing = true;
-        term.writeln(''); // New line after the command
+        term.writeln('');
         term.write('⏳ Running command...');
 
         try {
@@ -140,20 +133,16 @@
             });
 
             const data = await response.json();
+            term.write('\r\x1b[K'); // clear loading line
 
-            // Clear the "Running command..." loading line
-            term.write('\r\x1b[K');
-
-            // Sanitize and write the output from the server
             const output = data.output.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n');
             term.write(output);
 
         } catch (error) {
-            term.write('\r\x1b[K'); // Clear loading line
+            term.write('\r\x1b[K');
             term.writeln(`\x1b[31mError: Could not connect to the server.\x1b[0m`);
             console.error(error);
         } finally {
-            // Add command to history if it's not a duplicate of the last one
             if (command.trim() && commandHistory[commandHistory.length - 1] !== command.trim()) {
                 commandHistory.push(command.trim());
             }
@@ -171,7 +160,7 @@
 
         const printable = !domEvent.altKey && !domEvent.ctrlKey && !domEvent.metaKey;
 
-        switch (domEvent.key) {
+     switch (domEvent.key) {
             case 'Enter':
                 runCommand(command);
                 break;
@@ -185,7 +174,7 @@
                 if (historyIndex > 0) {
                     historyIndex--;
                     const promptText = `\x1b[1;32m${user}@${host}\x1b[0m:\x1b[1;34m${path}\x1b[0m$ `;
-                    term.write('\r\x1b[K' + promptText); // Clear line and write prompt
+                    term.write('\r\x1b[K' + promptText);
                     command = commandHistory[historyIndex];
                     term.write(command);
                 }
@@ -194,33 +183,32 @@
                 if (historyIndex < commandHistory.length - 1) {
                     historyIndex++;
                     const promptText = `\x1b[1;32m${user}@${host}\x1b[0m:\x1b[1;34m${path}\x1b[0m$ `;
-                    term.write('\r\x1b[K' + promptText); // Clear line and write prompt
+                    term.write('\r\x1b[K' + promptText);
                     command = commandHistory[historyIndex];
                     term.write(command);
                 } else {
                     historyIndex = commandHistory.length;
                     command = '';
                     const promptText = `\x1b[1;32m${user}@${host}\x1b[0m:\x1b[1;34m${path}\x1b[0m$ `;
-                    term.write('\r\x1b[K' + promptText); // Clear line and write prompt
+                    term.write('\r\x1b[K' + promptText);
                 }
                 break;
-            case 'c': // Handle Ctrl+C to clear the current line
+            case 'c':
                 if (domEvent.ctrlKey) {
                     term.write('^C');
                     prompt();
                 } else {
-                     command += key;
-                     term.write(key);
+                    command += key;
+                    term.write(key);
                 }
                 break;
             default:
                 if (printable) {
                     command += key;
                     term.write(key);
-                }
+                 }
         }
-    });
-
+     });
 </script>
 
 </body>
